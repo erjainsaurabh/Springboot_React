@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: workflow-postgres-dev
+    environment:
+      POSTGRES_DB: workflow_db
+      POSTGRES_USER: workflow_user
+      POSTGRES_PASSWORD: workflow_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data_dev:/var/lib/postgresql/data
+    networks:
+      - workflow-network
+
+  camunda:
+    image: camunda/camunda-bpm-platform:7.21.0
+    container_name: workflow-camunda-dev
+    environment:
+      DB_DRIVER: org.postgresql.Driver
+      DB_URL: jdbc:postgresql://postgres:5432/workflow_db
+      DB_USERNAME: workflow_user
+      DB_PASSWORD: workflow_pass
+      WAIT_FOR: postgres:5432
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+    networks:
+      - workflow-network
+
+volumes:
+  postgres_data_dev:
+
+networks:
+  workflow-network:
+    driver: bridge

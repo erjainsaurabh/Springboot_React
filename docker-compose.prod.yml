@@ -1,0 +1,126 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: workflow-postgres
+    environment:
+      POSTGRES_DB: workflow_db
+      POSTGRES_USER: workflow_user
+      POSTGRES_PASSWORD: workflow_pass
+    # NO PORTS EXPOSED - Internal communication only
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - workflow-network
+    restart: unless-stopped
+
+  camunda:
+    image: camunda/camunda-bpm-platform:7.21.0
+    container_name: workflow-camunda
+    environment:
+      DB_DRIVER: org.postgresql.Driver
+      DB_URL: jdbc:postgresql://postgres:5432/workflow_db
+      DB_USERNAME: workflow_user
+      DB_PASSWORD: workflow_pass
+      WAIT_FOR: postgres:5432
+    # NO PORTS EXPOSED - Access through Nginx only
+    depends_on:
+      - postgres
+    networks:
+      - workflow-network
+    restart: unless-stopped
+
+  auth-service:
+    build:
+      context: ./backend/auth-service
+      dockerfile: Dockerfile
+    container_name: workflow-auth-service
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/workflow_db
+      SPRING_DATASOURCE_USERNAME: workflow_user
+      SPRING_DATASOURCE_PASSWORD: workflow_pass
+    # NO PORTS EXPOSED - Access through Nginx only
+    depends_on:
+      - postgres
+    networks:
+      - workflow-network
+    restart: unless-stopped
+
+  workflow-service:
+    build:
+      context: ./backend/workflow-service
+      dockerfile: Dockerfile
+    container_name: workflow-workflow-service
+    environment:
+      CAMUNDA_REST_URL: http://camunda:8080/engine-rest
+    # NO PORTS EXPOSED - Access through Nginx only
+    depends_on:
+      - camunda
+    networks:
+      - workflow-network
+    restart: unless-stopped
+
+  task-service:
+    build:
+      context: ./backend/task-service
+      dockerfile: Dockerfile
+    container_name: workflow-task-service
+    environment:
+      CAMUNDA_REST_URL: http://camunda:8080/engine-rest
+    # NO PORTS EXPOSED - Access through Nginx only
+    depends_on:
+      - camunda
+    networks:
+      - workflow-network
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        - REACT_APP_API_BASE_URL=http://localhost
+        - REACT_APP_TASK_SERVICE_URL=http://localhost
+        - REACT_APP_WORKFLOW_SERVICE_URL=http://localhost
+        - REACT_APP_CAMUNDA_URL=http://localhost/camunda
+    container_name: workflow-frontend
+    # NO PORTS EXPOSED - Access through Nginx only
+    depends_on:
+      - auth-service
+      - workflow-service
+      - task-service
+    networks:
+      - workflow-network
+    restart: unless-stopped
+
+  # 🚀 REVERSE PROXY - Single Entry Point
+  nginx:
+    image: nginx:alpine
+    container_name: workflow-nginx
+    ports:
+      - "80:80"  # Only port exposed to outside world
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/.htpasswd:/etc/nginx/.htpasswd:ro
+    depends_on:
+      - frontend
+      - auth-service
+      - workflow-service
+      - task-service
+      - camunda
+    networks:
+      - workflow-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  postgres_data:
+
+networks:
+  workflow-network:
+    driver: bridge

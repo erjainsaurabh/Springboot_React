@@ -1,0 +1,17 @@
+server:
+  port: 8082
+
+spring:
+  application:
+    name: workflow-service
+  # No database configuration - using Camunda REST API only
+
+# Camunda REST API configuration only
+camunda:
+  rest:
+    url: http://camunda:8080/engine-rest
+
+logging:
+  level:
+    com.workflow.workflow: DEBUG
+    org.camunda: INFO

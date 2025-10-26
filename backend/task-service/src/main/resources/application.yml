@@ -1,0 +1,17 @@
+server:
+  port: 8083
+
+spring:
+  application:
+    name: task-service
+  # No database configuration - using Camunda REST API only
+
+# Camunda REST API configuration only
+camunda:
+  rest:
+    url: ${CAMUNDA_REST_URL:http://camunda:8080/engine-rest}
+
+logging:
+  level:
+    com.workflow.task: DEBUG
+    org.camunda: INFO
