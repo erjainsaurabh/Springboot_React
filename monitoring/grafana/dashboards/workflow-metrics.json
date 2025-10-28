@@ -1,0 +1,138 @@
+{
+  "id": null,
+  "title": "Workflow Service Metrics Dashboard",
+  "tags": ["metrics", "workflow-service", "prometheus"],
+  "style": "dark",
+  "timezone": "browser",
+  "panels": [
+    {
+      "id": 1,
+      "title": "HTTP Request Rate (Workflow Service)",
+      "type": "graph",
+      "targets": [
+        {
+          "expr": "rate(http_server_requests_seconds_count{job=\"workflow-service\", uri!=\"/actuator/prometheus\"}[1m])",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ],
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 }
+    },
+    {
+      "id": 2,
+      "title": "HTTP Request Duration (p95)",
+      "type": "graph",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le, job) (rate(http_server_requests_seconds_bucket{job=\"workflow-service\", uri!=\"/actuator/prometheus\"}[5m])))",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ],
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 }
+    },
+    {
+      "id": 3,
+      "title": "JVM Memory Usage (Workflow Service)",
+      "type": "graph",
+      "targets": [
+        {
+          "expr": "jvm_memory_used_bytes{job=\"workflow-service\", area=\"heap\"}",
+          "refId": "A",
+          "legendFormat": "{{id}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ],
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 }
+    },
+    {
+      "id": 4,
+      "title": "JVM Threads (Workflow Service)",
+      "type": "graph",
+      "targets": [
+        {
+          "expr": "jvm_threads_live_threads{job=\"workflow-service\"}",
+          "refId": "A",
+          "legendFormat": "Live Threads",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        },
+        {
+          "expr": "jvm_threads_peak_threads{job=\"workflow-service\"}",
+          "refId": "B",
+          "legendFormat": "Peak Threads",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ],
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 }
+    },
+    {
+      "id": 5,
+      "title": "HTTP Status Code Distribution",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "sum(rate(http_server_requests_seconds_count{job=\"workflow-service\", status=~\"2..\"}[1m]))",
+          "refId": "A",
+          "legendFormat": "2xx",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        },
+        {
+          "expr": "sum(rate(http_server_requests_seconds_count{job=\"workflow-service\", status=~\"4..\"}[1m]))",
+          "refId": "B",
+          "legendFormat": "4xx",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        },
+        {
+          "expr": "sum(rate(http_server_requests_seconds_count{job=\"workflow-service\", status=~\"5..\"}[1m]))",
+          "refId": "C",
+          "legendFormat": "5xx",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ],
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 }
+    },
+    {
+      "id": 6,
+      "title": "Camunda Integration Metrics",
+      "type": "graph",
+      "targets": [
+        {
+          "expr": "rate(http_client_requests_seconds_count{job=\"workflow-service\", uri=~\".*camunda.*\"}[1m])",
+          "refId": "A",
+          "legendFormat": "Camunda API Calls/sec",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ],
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 }
+    }
+  ],
+  "time": { "from": "now-1h", "to": "now" },
+  "refresh": "30s"
+}

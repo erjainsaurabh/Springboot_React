@@ -26,7 +26,34 @@ app:
   jwtSecret: mySecretKey123456789012345678901234567890
   jwtExpirationMs: 86400000
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus,httptrace
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+  tracing:
+    sampling:
+      probability: 0.1  # Sample only 10% of traces to reduce noise
+  zipkin:
+    tracing:
+      endpoint: http://zipkin:9411/api/v2/spans
+
+# OpenTelemetry Logging Configuration
 logging:
   level:
     com.workflow.auth: DEBUG
     org.springframework.security: DEBUG
+    root: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [traceId=%X{traceId:-},spanId=%X{spanId:-}] %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [traceId=%X{traceId:-},spanId=%X{spanId:-}] %logger{36} - %msg%n"
+  file:
+    name: /app/logs/auth-service.log
+  logback:
+    rollingpolicy:
+      max-file-size: 10MB
+      max-history: 30

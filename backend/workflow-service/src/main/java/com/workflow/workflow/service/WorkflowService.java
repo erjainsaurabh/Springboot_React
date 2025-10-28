@@ -2,8 +2,11 @@ package com.workflow.workflow.service;
 
 import com.workflow.workflow.dto.WorkflowRequest;
 import com.workflow.workflow.dto.WorkflowResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -17,6 +20,8 @@ import java.util.Map;
 @Service
 public class WorkflowService {
     
+    private static final Logger logger = LoggerFactory.getLogger(WorkflowService.class);
+    
     @Value("${camunda.rest.url:http://localhost:8080/engine-rest}")
     private String camundaRestUrl;
     
@@ -25,7 +30,7 @@ public class WorkflowService {
     
     public WorkflowResponse startProcess(WorkflowRequest request) {
         try {
-            System.out.println("DEBUG: Starting process via REST API: " + request.getProcessKey());
+            logger.info("Starting process via REST API: {}", request.getProcessKey());
             
             // Prepare variables for Camunda REST API
             Map<String, Object> requestBody = new HashMap<>();
@@ -37,15 +42,20 @@ public class WorkflowService {
             requestBody.put("variables", variables);
             
             String url = camundaRestUrl + "/process-definition/key/" + request.getProcessKey() + "/start";
-            System.out.println("DEBUG: Making request to URL: " + url);
+            logger.debug("Making request to URL: {}", url);
             
             HttpHeaders headers = new HttpHeaders();
             headers.set("Content-Type", "application/json");
             HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
             
-            ResponseEntity<Map> response = restTemplate.postForEntity(url, entity, Map.class);
-            System.out.println("DEBUG: Response status: " + response.getStatusCode());
-            System.out.println("DEBUG: Response body: " + response.getBody());
+            ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
+                url, 
+                HttpMethod.POST, 
+                entity, 
+                new ParameterizedTypeReference<Map<String, Object>>() {}
+            );
+            logger.debug("Response status: {}", response.getStatusCode());
+            logger.debug("Response body: {}", response.getBody());
             
             if (response.getBody() != null) {
                 Map<String, Object> responseBody = response.getBody();
@@ -66,8 +76,7 @@ public class WorkflowService {
                 );
             }
         } catch (Exception e) {
-            System.err.println("DEBUG: Error starting process: " + e.getMessage());
-            e.printStackTrace();
+            logger.error("Error starting process: {}", e.getMessage(), e);
             return new WorkflowResponse(
                 null,
                 request.getBusinessKey(),
@@ -81,6 +90,6 @@ public class WorkflowService {
     public void createDefaultProcesses() {
         // BPMN files are deployed to the central Camunda instance
         // This method can be used for any initialization logic
-        System.out.println("DEBUG: Default processes are managed by central Camunda instance");
+        logger.info("Default processes are managed by central Camunda instance");
     }
 }

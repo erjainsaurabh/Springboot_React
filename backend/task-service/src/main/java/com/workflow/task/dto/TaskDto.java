@@ -14,13 +14,14 @@ public class TaskDto {
     private Date created;
     private Date due;
     private String description;
+    private String status; // "pending", "completed", "in_progress"
     private Map<String, Object> variables;
     
     public TaskDto() {}
     
     public TaskDto(String id, String name, String assignee, String processInstanceId, 
                    String processDefinitionKey, String businessKey, Date created, 
-                   Date due, String description, Map<String, Object> variables) {
+                   Date due, String description, String status, Map<String, Object> variables) {
         this.id = id;
         this.name = name;
         this.assignee = assignee;
@@ -30,6 +31,7 @@ public class TaskDto {
         this.created = created;
         this.due = due;
         this.description = description;
+        this.status = status;
         this.variables = variables;
     }
     
@@ -104,6 +106,14 @@ public class TaskDto {
     
     public void setDescription(String description) {
         this.description = description;
+    }
+    
+    public String getStatus() {
+        return status;
+    }
+    
+    public void setStatus(String status) {
+        this.status = status;
     }
     
     public Map<String, Object> getVariables() {

@@ -4,7 +4,10 @@ import com.workflow.auth.dto.LoginRequest;
 import com.workflow.auth.dto.LoginResponse;
 import com.workflow.auth.model.User;
 import com.workflow.auth.service.AuthService;
+import jakarta.annotation.PostConstruct;
 import jakarta.validation.Valid;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -17,11 +20,21 @@ import java.util.Map;
 @RequestMapping("/api/auth")
 public class AuthController {
     
+    private static final Logger logger = LoggerFactory.getLogger(AuthController.class);
+    
     @Autowired
     AuthService authService;
     
+    @PostConstruct
+    public void init() {
+        logger.info("=================================");
+        logger.info("AuthController initialized!");
+        logger.info("=================================");
+    }
+    
     @PostMapping("/signin")
     public ResponseEntity<?> authenticateUser(@Valid @RequestBody LoginRequest loginRequest) {
+        logger.info("signin called for user: {}", loginRequest.getUsername());
         try {
             LoginResponse response = authService.authenticateUser(loginRequest);
             return ResponseEntity.ok(response);

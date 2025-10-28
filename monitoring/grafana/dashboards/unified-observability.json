@@ -1,0 +1,124 @@
+{
+  "title": "Unified Observability Dashboard",
+  "tags": ["observability", "logs", "traces", "metrics"],
+  "timezone": "browser",
+  "refresh": "30s",
+  "panels": [
+      {
+        "id": 1,
+        "title": "Request Rate",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+        "targets": [
+          {
+            "expr": "rate(http_server_requests_seconds_count[5m])",
+            "datasource": {"type": "prometheus", "uid": "prometheus"},
+            "legendFormat": "{{uri}}"
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "title": "Response Time (p95)",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(http_server_requests_seconds_bucket[5m]))",
+            "datasource": {"type": "prometheus", "uid": "prometheus"},
+            "legendFormat": "{{uri}}"
+          }
+        ]
+      },
+      {
+        "id": 3,
+        "title": "Error Rate",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+        "targets": [
+          {
+            "expr": "rate(http_server_requests_seconds_count{status=~\"5..\"}[5m])",
+            "datasource": {"type": "prometheus", "uid": "prometheus"},
+            "legendFormat": "{{uri}} - {{status}}"
+          }
+        ]
+      },
+      {
+        "id": 4,
+        "title": "JVM Memory Usage",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+        "targets": [
+          {
+            "expr": "jvm_memory_used_bytes{area=\"heap\"}",
+            "datasource": {"type": "prometheus", "uid": "prometheus"},
+            "legendFormat": "{{instance}}"
+          }
+        ]
+      },
+      {
+        "id": 6,
+        "title": "Service Health",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 8, "x": 0, "y": 16},
+        "targets": [
+          {
+            "expr": "up{job!=\"prometheus\"}",
+            "datasource": {"type": "prometheus", "uid": "prometheus"},
+            "legendFormat": "{{job}}"
+          }
+        ],
+        "options": {
+          "graphMode": "none",
+          "colorMode": "value",
+          "orientation": "auto"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "red"},
+                {"value": 1, "color": "green"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 7,
+        "title": "Total Requests",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 8, "x": 8, "y": 16},
+        "targets": [
+          {
+            "expr": "sum(increase(http_server_requests_seconds_count[1h]))",
+            "datasource": {"type": "prometheus", "uid": "prometheus"}
+          }
+        ]
+      },
+      {
+        "id": 8,
+        "title": "HTTP Status Codes",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 20},
+        "targets": [
+          {
+            "expr": "rate(http_server_requests_seconds_count[5m])",
+            "datasource": {"type": "prometheus", "uid": "prometheus"},
+            "legendFormat": "{{status}} - {{uri}}"
+          }
+        ]
+      },
+      {
+        "id": 9,
+        "title": "Note: Use Kibana for Logs & Zipkin for Traces",
+        "type": "text",
+        "gridPos": {"h": 4, "w": 12, "x": 12, "y": 20},
+        "options": {
+          "content": "📊 **Logs**: [Kibana](http://localhost:5601)\n🔍 **Traces**: [Zipkin](http://localhost:9411)\n\nSearch by traceId to correlate logs and traces."
+        }
+      }
+    ]
+}
+

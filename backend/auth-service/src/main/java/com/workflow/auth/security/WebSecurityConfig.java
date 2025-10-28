@@ -1,5 +1,8 @@
 package com.workflow.auth.security;
 
+import jakarta.annotation.PostConstruct;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -25,11 +28,20 @@ import java.util.Arrays;
 @EnableMethodSecurity(prePostEnabled = true)
 public class WebSecurityConfig {
     
+    private static final Logger logger = LoggerFactory.getLogger(WebSecurityConfig.class);
+    
     @Autowired
     UserDetailsServiceImpl userDetailsService;
     
     @Autowired
     private AuthEntryPointJwt unauthorizedHandler;
+    
+    @PostConstruct
+    public void init() {
+        logger.info("=================================");
+        logger.info("WebSecurityConfig initialized!");
+        logger.info("=================================");
+    }
     
     @Bean
     public AuthTokenFilter authenticationJwtTokenFilter() {
@@ -63,6 +75,7 @@ public class WebSecurityConfig {
             .authorizeHttpRequests(auth -> 
                 auth.requestMatchers("/api/auth/**").permitAll()
                     .requestMatchers("/api/test/**").permitAll()
+                    .requestMatchers("/actuator/**").permitAll()
                     .anyRequest().authenticated()
             );
         

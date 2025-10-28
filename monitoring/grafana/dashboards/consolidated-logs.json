@@ -1,0 +1,66 @@
+{
+  "title": "Consolidated Transaction Logs",
+  "panels": [
+      {
+        "title": "Transaction Logs (All Services)",
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 0},
+        "targets": [
+          {
+            "refId": "A",
+            "query": {
+              "alias": "",
+              "bucketAggs": [
+                {
+                  "field": "@timestamp",
+                  "id": "2",
+                  "settings": {
+                    "interval": "auto"
+                  },
+                  "type": "date_histogram"
+                }
+              ],
+              "metrics": [
+                {
+                  "id": "1",
+                  "type": "logs"
+                }
+              ],
+              "query": "*$traceId*",
+              "queryType": "lucene"
+            },
+            "datasource": {
+              "type": "elasticsearch",
+              "uid": "elasticsearch"
+            },
+            "format": "logs"
+          }
+        ],
+        "options": {
+          "dedupStrategy": "none",
+          "enableLogDetails": true,
+          "prettifyLogMessage": true,
+          "enableCopy": true,
+          "showTime": true,
+          "showLabels": true,
+          "sortOrder": "Descending",
+          "expandableRows": true,
+          "datasourceUid": "elasticsearch"
+        }
+      }
+    ],
+    "templating": {
+      "list": [
+        {
+          "name": "traceId",
+          "type": "textbox",
+          "label": "Trace ID",
+          "query": "$__dashboard.title",
+          "current": {
+            "selected": false,
+            "text": "",
+            "value": ""
+          }
+        }
+      ]
+    }
+}

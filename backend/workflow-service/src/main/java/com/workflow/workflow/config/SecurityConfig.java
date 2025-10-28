@@ -16,6 +16,7 @@ public class SecurityConfig {
             .csrf(csrf -> csrf.disable())
             .authorizeHttpRequests(authz -> authz
                 .requestMatchers("/api/**").permitAll()
+                .requestMatchers("/actuator/**").permitAll()
                 .anyRequest().authenticated()
             );
         return http.build();

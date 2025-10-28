@@ -2,14 +2,21 @@ package com.workflow.task.service;
 
 import com.workflow.task.dto.TaskCompletionRequest;
 import com.workflow.task.dto.TaskDto;
+import io.micrometer.tracing.annotation.NewSpan;
+import io.micrometer.tracing.annotation.SpanTag;
+import io.micrometer.tracing.Tracer;
+import io.micrometer.tracing.Span;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.Date;
@@ -19,24 +26,51 @@ import java.util.Map;
 @Service
 public class WorkflowTaskService {
     
+    private static final Logger logger = LoggerFactory.getLogger(WorkflowTaskService.class);
+    
     @Value("${camunda.rest.url:http://localhost:8080/engine-rest}")
     private String camundaRestUrl;
     
     @Autowired
     private RestTemplate restTemplate;
     
-    public List<TaskDto> getTasksForUser(String userId) {
+    @Autowired
+    private Tracer tracer;
+    
+    @NewSpan("get-tasks-for-user")
+    public List<TaskDto> getTasksForUser(@SpanTag("userId") String userId) {
         try {
-            System.out.println("DEBUG: camundaRestUrl = " + camundaRestUrl);
+            logger.debug("camundaRestUrl: {}", camundaRestUrl);
             String url = camundaRestUrl + "/task?assignee=" + userId;
-            System.out.println("DEBUG: Making request to URL: " + url);
-            ResponseEntity<Map[]> response = restTemplate.getForEntity(url, Map[].class);
-            System.out.println("DEBUG: Response status: " + response.getStatusCode());
-            System.out.println("DEBUG: Response body: " + response.getBody());
+            logger.debug("Making request to URL: {}", url);
+            
+            // Create a manual span for the Camunda API call
+            Span span = tracer.nextSpan()
+                .name("camunda-get-tasks-for-user")
+                .tag("service", "camunda")
+                .tag("operation", "get-tasks-for-user")
+                .tag("userId", userId)
+                .tag("url", url)
+                .start();
+            
+            ResponseEntity<List<Map<String, Object>>> response;
+            try (Tracer.SpanInScope ws = tracer.withSpan(span)) {
+                response = restTemplate.exchange(
+                    url, 
+                    HttpMethod.GET, 
+                    null, 
+                    new ParameterizedTypeReference<List<Map<String, Object>>>() {}
+                );
+            } finally {
+                span.end();
+            }
+            logger.debug("Response status: {}", response.getStatusCode());
+            logger.debug("Response body: {}", response.getBody());
             
             List<TaskDto> taskDtos = new ArrayList<>();
-            if (response.getBody() != null) {
-                for (Map<String, Object> taskData : response.getBody()) {
+            List<Map<String, Object>> responseBody = response.getBody();
+            if (responseBody != null) {
+                for (Map<String, Object> taskData : responseBody) {
                     TaskDto dto = convertToDto(taskData);
                     taskDtos.add(dto);
                 }
@@ -44,70 +78,121 @@ public class WorkflowTaskService {
             
             return taskDtos;
         } catch (Exception e) {
-            System.out.println("DEBUG: Exception occurred: " + e.getMessage());
-            e.printStackTrace();
+            logger.error("Exception occurred: {}", e.getMessage(), e);
             return new ArrayList<>();
         }
     }
     
+    @NewSpan("get-all-tasks")
     public List<TaskDto> getAllTasks() {
         try {
-            System.out.println("DEBUG: [getAllTasks] Starting to fetch all tasks");
-            String url = camundaRestUrl + "/task";
-            System.out.println("DEBUG: [getAllTasks] Making request to URL: " + url);
+            // Add business context to the current span
+            if (tracer.currentSpan() != null) {
+                tracer.currentSpan().tag("business.operation", "get-all-tasks");
+                tracer.currentSpan().tag("business.service", "task-service");
+                tracer.currentSpan().tag("business.scope", "all-users");
+            }
             
-            ResponseEntity<Map[]> response = restTemplate.getForEntity(url, Map[].class);
-            System.out.println("DEBUG: [getAllTasks] Response status: " + response.getStatusCode());
-            System.out.println("DEBUG: [getAllTasks] Number of tasks found: " + (response.getBody() != null ? response.getBody().length : 0));
+            logger.debug("Starting to fetch all tasks");
+            String url = camundaRestUrl + "/task";
+            logger.debug("Making request to URL: {}", url);
+            
+            // Create a manual span for the Camunda API call
+            Span span = tracer.nextSpan()
+                .name("camunda-get-tasks")
+                .tag("service", "camunda")
+                .tag("operation", "get-tasks")
+                .tag("url", url)
+                .start();
+            
+            ResponseEntity<List<Map<String, Object>>> response;
+            try (Tracer.SpanInScope ws = tracer.withSpan(span)) {
+                response = restTemplate.exchange(
+                    url, 
+                    HttpMethod.GET, 
+                    null, 
+                    new ParameterizedTypeReference<List<Map<String, Object>>>() {}
+                );
+            } finally {
+                span.end();
+            }
+            logger.debug("Response status: {}", response.getStatusCode());
+            List<Map<String, Object>> responseBody = response.getBody();
+            logger.debug("Number of tasks found: {}", (responseBody != null ? responseBody.size() : 0));
             
             List<TaskDto> taskDtos = new ArrayList<>();
-            if (response.getBody() != null) {
-                for (Map<String, Object> taskData : response.getBody()) {
-                    System.out.println("DEBUG: [getAllTasks] Processing task: " + taskData.get("id") + " - " + taskData.get("name"));
+            if (responseBody != null) {
+                for (Map<String, Object> taskData : responseBody) {
+                    logger.debug("Processing task: {} - {}", taskData.get("id"), taskData.get("name"));
                     TaskDto dto = convertToDto(taskData);
                     taskDtos.add(dto);
                 }
             }
             
-            System.out.println("DEBUG: [getAllTasks] Returning " + taskDtos.size() + " tasks");
+            logger.debug("Returning {} tasks", taskDtos.size());
             return taskDtos;
         } catch (Exception e) {
-            System.out.println("DEBUG: [getAllTasks] Exception occurred: " + e.getMessage());
-            e.printStackTrace();
+            logger.error("Exception occurred: {}", e.getMessage(), e);
             return new ArrayList<>();
         }
     }
     
-    public TaskDto getTaskById(String taskId) {
+    @NewSpan("get-task-by-id")
+    public TaskDto getTaskById(@SpanTag("taskId") String taskId) {
         try {
-            System.out.println("DEBUG: [getTaskById] Fetching task with ID: " + taskId);
-            String url = camundaRestUrl + "/task/" + taskId;
-            System.out.println("DEBUG: [getTaskById] Making request to URL: " + url);
-            
-            ResponseEntity<Map> response = restTemplate.getForEntity(url, Map.class);
-            System.out.println("DEBUG: [getTaskById] Response status: " + response.getStatusCode());
-            
-            if (response.getBody() != null) {
-                System.out.println("DEBUG: [getTaskById] Task found: " + response.getBody().get("name"));
-                return convertToDto(response.getBody());
+            // Add business context to the current span
+            if (tracer.currentSpan() != null) {
+                tracer.currentSpan().tag("business.operation", "get-task-by-id");
+                tracer.currentSpan().tag("business.taskId", taskId);
+                tracer.currentSpan().tag("business.service", "task-service");
             }
             
-            System.out.println("DEBUG: [getTaskById] No task found with ID: " + taskId);
+            logger.debug("Fetching task with ID: {}", taskId);
+            String url = camundaRestUrl + "/task/" + taskId;
+            logger.debug("Making request to URL: {}", url);
+            
+            ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
+                url, 
+                HttpMethod.GET, 
+                null, 
+                new ParameterizedTypeReference<Map<String, Object>>() {}
+            );
+            logger.debug("Response status: {}", response.getStatusCode());
+            
+            Map<String, Object> responseBody = response.getBody();
+            if (responseBody != null) {
+                logger.debug("Task found: {}", responseBody.get("name"));
+                return convertToDto(responseBody);
+            }
+            
+            logger.debug("No task found with ID: {}", taskId);
             return null;
         } catch (Exception e) {
-            System.out.println("DEBUG: [getTaskById] Exception occurred: " + e.getMessage());
-            e.printStackTrace();
+            logger.error("Exception occurred: {}", e.getMessage(), e);
             return null;
         }
     }
     
     public boolean completeTask(TaskCompletionRequest request) {
         try {
-            System.out.println("DEBUG: [completeTask] Starting task completion for task ID: " + request.getTaskId());
-            System.out.println("DEBUG: [completeTask] Variables provided: " + request.getVariables());
+            // Add business context to the current span
+            if (tracer.currentSpan() != null) {
+                tracer.currentSpan().tag("business.operation", "complete-task");
+                tracer.currentSpan().tag("business.taskId", request.getTaskId());
+                tracer.currentSpan().tag("business.service", "task-service");
+                if (request.getVariables() != null) {
+                    tracer.currentSpan().tag("business.variables", request.getVariables().toString());
+                }
+            }
+            
+            // Log trace ID for correlation
+            String traceId = tracer.currentSpan() != null ? tracer.currentSpan().context().traceId() : "no-trace";
+            logger.info("Starting task completion for task ID: {} with traceId: {}", request.getTaskId(), traceId);
+            
+            logger.debug("Variables provided: {}", request.getVariables());
             
             String url = camundaRestUrl + "/task/" + request.getTaskId() + "/complete";
-            System.out.println("DEBUG: [completeTask] Making request to URL: " + url);
+            logger.debug("Making request to URL: {}", url);
             
             Map<String, Object> requestBody = new java.util.HashMap<>();
             if (request.getVariables() != null) {
@@ -119,62 +204,68 @@ public class WorkflowTaskService {
                     camundaVariables.put(entry.getKey(), variableValue);
                 }
                 requestBody.put("variables", camundaVariables);
-                System.out.println("DEBUG: [completeTask] Request body with variables: " + requestBody);
+                logger.debug("Request body with variables: {}", requestBody);
             } else {
-                System.out.println("DEBUG: [completeTask] No variables provided, sending empty request body");
+                logger.debug("No variables provided, sending empty request body");
             }
             
             HttpHeaders headers = new HttpHeaders();
             headers.set("Content-Type", "application/json");
             HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
             
-            System.out.println("DEBUG: [completeTask] Sending POST request to complete task...");
-            ResponseEntity<Map> response = restTemplate.postForEntity(url, entity, Map.class);
-            System.out.println("DEBUG: [completeTask] Response status: " + response.getStatusCode());
-            System.out.println("DEBUG: [completeTask] Response body: " + response.getBody());
+            logger.debug("Sending POST request to complete task...");
+            ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
+                url, 
+                HttpMethod.POST, 
+                entity, 
+                new ParameterizedTypeReference<Map<String, Object>>() {}
+            );
+            logger.debug("Response status: {}", response.getStatusCode());
+            logger.debug("Response body: {}", response.getBody());
             
-            System.out.println("DEBUG: [completeTask] Task completion successful!");
+            logger.info("Task completion successful for task ID: {} with traceId: {}", request.getTaskId(), traceId);
             return true;
         } catch (Exception e) {
-            System.out.println("DEBUG: [completeTask] Exception occurred: " + e.getMessage());
-            System.out.println("DEBUG: [completeTask] Exception type: " + e.getClass().getSimpleName());
-            e.printStackTrace();
+            logger.error("Exception occurred: {}, type: {}", e.getMessage(), e.getClass().getSimpleName(), e);
             return false;
         }
     }
     
     public boolean claimTask(String taskId, String userId) {
         try {
-            System.out.println("DEBUG: [claimTask] Starting task claim for task ID: " + taskId + " by user: " + userId);
+            logger.debug("Starting task claim for task ID: {} by user: {}", taskId, userId);
             
             String url = camundaRestUrl + "/task/" + taskId + "/claim";
-            System.out.println("DEBUG: [claimTask] Making request to URL: " + url);
+            logger.debug("Making request to URL: {}", url);
             
             Map<String, Object> requestBody = new java.util.HashMap<>();
             requestBody.put("userId", userId);
-            System.out.println("DEBUG: [claimTask] Request body: " + requestBody);
+            logger.debug("Request body: {}", requestBody);
             
             HttpHeaders headers = new HttpHeaders();
             headers.set("Content-Type", "application/json");
             HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
             
-            System.out.println("DEBUG: [claimTask] Sending POST request to claim task...");
-            ResponseEntity<Map> response = restTemplate.postForEntity(url, entity, Map.class);
-            System.out.println("DEBUG: [claimTask] Response status: " + response.getStatusCode());
-            System.out.println("DEBUG: [claimTask] Response body: " + response.getBody());
+            logger.debug("Sending POST request to claim task...");
+            ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
+                url, 
+                HttpMethod.POST, 
+                entity, 
+                new ParameterizedTypeReference<Map<String, Object>>() {}
+            );
+            logger.debug("Response status: {}", response.getStatusCode());
+            logger.debug("Response body: {}", response.getBody());
             
-            System.out.println("DEBUG: [claimTask] Task claim successful!");
+            logger.debug("Task claim successful!");
             return true;
         } catch (Exception e) {
-            System.out.println("DEBUG: [claimTask] Exception occurred: " + e.getMessage());
-            System.out.println("DEBUG: [claimTask] Exception type: " + e.getClass().getSimpleName());
-            e.printStackTrace();
+            logger.error("Exception occurred: {}, type: {}", e.getMessage(), e.getClass().getSimpleName(), e);
             return false;
         }
     }
     
     private TaskDto convertToDto(Map<String, Object> taskData) {
-        System.out.println("DEBUG: [convertToDto] Converting task data: " + taskData);
+        logger.debug("Converting task data: {}", taskData);
         
         TaskDto dto = new TaskDto();
         dto.setId((String) taskData.get("id"));
@@ -183,7 +274,7 @@ public class WorkflowTaskService {
         dto.setProcessInstanceId((String) taskData.get("processInstanceId"));
         dto.setProcessDefinitionKey((String) taskData.get("processDefinitionId"));
         
-        System.out.println("DEBUG: [convertToDto] Basic task info - ID: " + dto.getId() + ", Name: " + dto.getName() + ", Assignee: " + dto.getAssignee());
+        logger.debug("Basic task info - ID: {}, Name: {}, Assignee: {}", dto.getId(), dto.getName(), dto.getAssignee());
         
         // Parse created date
         String createdStr = (String) taskData.get("created");
@@ -198,13 +289,12 @@ public class WorkflowTaskService {
                     // Format: 2025-10-23T02:16:10.194Z
                     dto.setCreated(new Date(java.time.Instant.parse(createdStr).toEpochMilli()));
                 }
-                System.out.println("DEBUG: [convertToDto] Created date parsed successfully: " + dto.getCreated());
+                logger.debug("Created date parsed successfully: {}", dto.getCreated());
             } catch (Exception e) {
-                System.out.println("DEBUG: [convertToDto] Error parsing created date: " + e.getMessage());
-                System.out.println("DEBUG: [convertToDto] Date string was: " + createdStr);
+                logger.warn("Error parsing created date: {}, Date string was: {}", e.getMessage(), createdStr);
             }
         } else {
-            System.out.println("DEBUG: [convertToDto] No created date found");
+            logger.debug("No created date found");
         }
         
         // Parse due date
@@ -212,33 +302,42 @@ public class WorkflowTaskService {
         if (dueStr != null) {
             try {
                 dto.setDue(new Date(java.time.Instant.parse(dueStr).toEpochMilli()));
-                System.out.println("DEBUG: [convertToDto] Due date parsed successfully: " + dto.getDue());
+                logger.debug("Due date parsed successfully: {}", dto.getDue());
             } catch (Exception e) {
-                System.out.println("DEBUG: [convertToDto] Error parsing due date: " + e.getMessage());
+                logger.warn("Error parsing due date: {}", e.getMessage());
             }
         } else {
-            System.out.println("DEBUG: [convertToDto] No due date found");
+            logger.debug("No due date found");
         }
         
         dto.setDescription((String) taskData.get("description"));
         
+        // Set task status - all tasks from Camunda are "pending" by default
+        // In a real system, you might check if task is completed based on other criteria
+        dto.setStatus("pending");
+        
         // Get task variables
         try {
             String taskId = (String) taskData.get("id");
-            System.out.println("DEBUG: [convertToDto] Fetching variables for task ID: " + taskId);
+            logger.debug("Fetching variables for task ID: {}", taskId);
             String url = camundaRestUrl + "/task/" + taskId + "/variables";
-            ResponseEntity<Map> response = restTemplate.getForEntity(url, Map.class);
+            ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
+                url, 
+                HttpMethod.GET, 
+                null, 
+                new ParameterizedTypeReference<Map<String, Object>>() {}
+            );
             if (response.getBody() != null) {
                 dto.setVariables(response.getBody());
-                System.out.println("DEBUG: [convertToDto] Variables fetched successfully: " + response.getBody());
+                logger.debug("Variables fetched successfully: {}", response.getBody());
             } else {
-                System.out.println("DEBUG: [convertToDto] No variables found for task");
+                logger.debug("No variables found for task");
             }
         } catch (Exception e) {
-            System.out.println("DEBUG: [convertToDto] Error fetching variables: " + e.getMessage());
+            logger.warn("Error fetching variables: {}", e.getMessage());
         }
         
-        System.out.println("DEBUG: [convertToDto] Task DTO conversion completed for task: " + dto.getName());
+        logger.debug("Task DTO conversion completed for task: {}", dto.getName());
         return dto;
     }
 }

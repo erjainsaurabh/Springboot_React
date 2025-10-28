@@ -2,6 +2,7 @@ package com.workflow.auth.security;
 
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
+import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -22,32 +23,39 @@ public class JwtUtils {
     @Value("${app.jwtExpirationMs:86400000}")
     private int jwtExpirationMs;
     
+    @PostConstruct
+    public void init() {
+        logger.info("=================================");
+        logger.info("JwtUtils initialized!");
+        logger.info("=================================");
+    }
+    
     public String generateJwtToken(Authentication authentication) {
         UserPrincipal userPrincipal = (UserPrincipal) authentication.getPrincipal();
         
         return Jwts.builder()
-                .setSubject((userPrincipal.getUsername()))
-                .setIssuedAt(new Date())
-                .setExpiration(new Date((new Date()).getTime() + jwtExpirationMs))
-                .signWith(getSigningKey(), SignatureAlgorithm.HS256)
+                .subject(userPrincipal.getUsername())
+                .issuedAt(new Date())
+                .expiration(new Date((new Date()).getTime() + jwtExpirationMs))
+                .signWith(getSigningKey())
                 .compact();
     }
     
     public String getUserNameFromJwtToken(String token) {
-        return Jwts.parserBuilder()
-                .setSigningKey(getSigningKey())
+        return Jwts.parser()
+                .verifyWith(getSigningKey())
                 .build()
-                .parseClaimsJws(token)
-                .getBody()
+                .parseSignedClaims(token)
+                .getPayload()
                 .getSubject();
     }
     
     public boolean validateJwtToken(String authToken) {
         try {
-            Jwts.parserBuilder()
-                .setSigningKey(getSigningKey())
+            Jwts.parser()
+                .verifyWith(getSigningKey())
                 .build()
-                .parseClaimsJws(authToken);
+                .parseSignedClaims(authToken);
             return true;
         } catch (MalformedJwtException e) {
             logger.error("Invalid JWT token: {}", e.getMessage());

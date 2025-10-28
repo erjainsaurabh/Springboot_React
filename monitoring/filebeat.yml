@@ -1,0 +1,27 @@
+filebeat.inputs:
+  - type: log
+    enabled: true
+    paths:
+      - '/var/lib/docker/containers/*/*.log'
+    parsers:
+      - ndjson:
+          keys_under_root: true
+          add_error_key: true
+    processors:
+      - add_docker_metadata: ~
+
+output.elasticsearch:
+  hosts: ["elasticsearch:9200"]
+  indices:
+    - index: "docker-logs-%{+yyyy.MM.dd}"
+
+setup.template.name: "docker-logs"
+setup.template.pattern: "docker-logs-*"
+setup.ilm.enabled: true
+setup.ilm.rollover_alias: "docker-logs"
+
+processors:
+  - add_fields:
+      target: service
+      fields:
+        environment: production

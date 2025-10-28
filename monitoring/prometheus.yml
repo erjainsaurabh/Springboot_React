@@ -1,0 +1,47 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  # - "first_rules.yml"
+  # - "second_rules.yml"
+
+scrape_configs:
+  # Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Auth Service
+  - job_name: 'auth-service'
+    static_configs:
+      - targets: ['nginx:80']
+    metrics_path: '/actuator/prometheus'
+    scrape_interval: 1m
+
+  # Workflow Service
+  - job_name: 'workflow-service'
+    static_configs:
+      - targets: ['nginx:80']
+    metrics_path: '/workflow-service/actuator/prometheus'
+    scrape_interval: 1m
+
+  # Task Service
+  - job_name: 'task-service'
+    static_configs:
+      - targets: ['nginx:80']
+    metrics_path: '/task-service/actuator/prometheus'
+    scrape_interval: 1m
+
+  # Camunda - Disabled because it doesn't expose Prometheus metrics
+  # - job_name: 'camunda'
+  #   static_configs:
+  #     - targets: ['camunda:8080']
+  #   metrics_path: '/metrics'
+  #   scrape_interval: 10s
+
+  # PostgreSQL - Disabled because postgres_exporter is not configured
+  # - job_name: 'postgres'
+  #   static_configs:
+  #     - targets: ['postgres:5432']
+  #   scrape_interval: 30s

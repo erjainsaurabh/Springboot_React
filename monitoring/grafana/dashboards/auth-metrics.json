@@ -1,0 +1,163 @@
+{
+  "id": null,
+  "title": "Auth Service Metrics Dashboard",
+  "tags": ["metrics", "prometheus", "auth-service"],
+  "style": "dark",
+  "timezone": "browser",
+  "panels": [
+    {
+      "id": 1,
+      "title": "HTTP Request Rate",
+      "type": "graph",
+      "targets": [
+        {
+          "expr": "rate(http_server_requests_seconds_count[5m])",
+          "refId": "A",
+          "legendFormat": "{{method}} {{uri}}"
+        }
+      ],
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "yaxes": [
+        {
+          "format": "reqps"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "HTTP Request Duration (p95)",
+      "type": "graph",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, rate(http_server_requests_seconds_bucket[5m]))",
+          "refId": "A",
+          "legendFormat": "{{uri}}"
+        }
+      ],
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "yaxes": [
+        {
+          "format": "s"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "JVM Memory Usage",
+      "type": "graph",
+      "targets": [
+        {
+          "expr": "jvm_memory_used_bytes",
+          "refId": "A",
+          "legendFormat": "{{area}}"
+        },
+        {
+          "expr": "jvm_memory_max_bytes",
+          "refId": "B",
+          "legendFormat": "{{area}} (max)"
+        }
+      ],
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      },
+      "yaxes": [
+        {
+          "format": "bytes"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "JVM Threads",
+      "type": "graph",
+      "targets": [
+        {
+          "expr": "jvm_threads_live_threads",
+          "refId": "A",
+          "legendFormat": "Live threads"
+        },
+        {
+          "expr": "jvm_threads_peak_threads",
+          "refId": "B",
+          "legendFormat": "Peak threads"
+        }
+      ],
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 8
+      }
+    },
+    {
+      "id": 5,
+      "title": "HTTP Status Codes",
+      "type": "piechart",
+      "targets": [
+        {
+          "expr": "sum(rate(http_server_requests_seconds_count{status=~\"2..\"}[5m]))",
+          "refId": "A",
+          "legendFormat": "2xx"
+        },
+        {
+          "expr": "sum(rate(http_server_requests_seconds_count{status=~\"4..\"}[5m]))",
+          "refId": "B",
+          "legendFormat": "4xx"
+        },
+        {
+          "expr": "sum(rate(http_server_requests_seconds_count{status=~\"5..\"}[5m]))",
+          "refId": "C",
+          "legendFormat": "5xx"
+        }
+      ],
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 16
+      }
+    },
+    {
+      "id": 6,
+      "title": "Database Connection Pool",
+      "type": "graph",
+      "targets": [
+        {
+          "expr": "jdbc_connections_active",
+          "refId": "A",
+          "legendFormat": "Active connections"
+        },
+        {
+          "expr": "jdbc_connections_max",
+          "refId": "B",
+          "legendFormat": "Max connections"
+        }
+      ],
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 16
+      }
+    }
+  ],
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "refresh": "30s"
+}
+

@@ -6,6 +6,9 @@ import com.workflow.auth.model.User;
 import com.workflow.auth.repository.UserRepository;
 import com.workflow.auth.security.JwtUtils;
 import com.workflow.auth.security.UserPrincipal;
+import jakarta.annotation.PostConstruct;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -18,6 +21,15 @@ import java.util.Optional;
 
 @Service
 public class AuthService {
+    
+    private static final Logger logger = LoggerFactory.getLogger(AuthService.class);
+    
+    @PostConstruct
+    public void init() {
+        logger.info("=================================");
+        logger.info("AuthService initialized!");
+        logger.info("=================================");
+    }
     
     @Autowired
     AuthenticationManager authenticationManager;
@@ -47,8 +59,7 @@ public class AuthService {
             return new LoginResponse(jwt, userPrincipal.getId(), userPrincipal.getUsername(), 
                     userPrincipal.getEmail(), role);
         } catch (Exception e) {
-            System.err.println("Error in authenticateUser: " + e.getMessage());
-            e.printStackTrace();
+            logger.error("Error in authenticateUser: {}", e.getMessage());
             throw e;
         }
     }
